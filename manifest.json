@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+    "id": "obsidian-elevenlabs-tts",
+    "name": "ElevenLabs Text-to-Speech",
+    "version": "1.0.0",
+    "minAppVersion": "0.12.0",
+    "description": "Generate audio from selected text using ElevenLabs API",
+    "author": "Gleb Kalinin",
+    "authorUrl": "https://github.com/glebis",
+    "isDesktopOnly": true
 }

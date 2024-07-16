@@ -1,4 +1,8 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { ElevenLabsClient } from "elevenlabs";
+
+// const { ElevenLabsClient } = require('elevenlabs');
+
 import { v4 as uuid } from "uuid";
 
 interface ElevenLabsTTSSettings {
@@ -15,24 +19,16 @@ const DEFAULT_SETTINGS: ElevenLabsTTSSettings = {
     attachToDaily: false
 }
 
-const BASE_URL = "https://api.elevenlabs.io/v1";
-
-interface VoiceSettings {
-    stability: number;
-    similarity_boost: number;
-}
-
-interface TextToSpeechRequest {
-    model_id: string;
-    text: string;
-    voice_settings?: VoiceSettings;
-}
-
 export default class ElevenLabsTTSPlugin extends Plugin {
     settings: ElevenLabsTTSSettings;
+    client: ElevenLabsClient;
 
     async onload() {
         await this.loadSettings();
+        
+        this.client = new ElevenLabsClient({
+            apiKey: this.settings.apiKey,
+        });
 
         this.addCommand({
             id: 'read-with-eleventy',
@@ -60,35 +56,20 @@ export default class ElevenLabsTTSPlugin extends Plugin {
         }
 
         try {
-            const voiceSettings: VoiceSettings = {
-                stability: 0.5, // Replace with your desired value
-                similarity_boost: 0.5, // Replace with your desired value
-            };
-
-            const data: TextToSpeechRequest = {
-                model_id: "eleven_multilingual_v2", // Replace with your desired model ID
+            const audio = await this.client.generate({
+                voice: this.settings.selectedVoice,
                 text: text,
-                voice_settings: voiceSettings,
-            };
-
-            const requestOptions = {
-                method: "POST",
-                headers: {
-                    Accept: "audio/mpeg",
-                    "xi-api-key": this.settings.apiKey,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(data),
-            };
-
-            const response = await fetch(`${BASE_URL}/text-to-speech/${this.settings.selectedVoice}`, requestOptions);
-            const audioData = await response.arrayBuffer();
+                model_id: "eleven_multilingual_v2"
+            });
 
             const fileName = `${uuid()}.mp3`;
             const filePath = `${this.settings.outputFolder}/${fileName}`;
 
-            // Write the audio data to a file using Obsidian's API
-            await this.app.vault.adapter.writeBinary(filePath, audioData);
+            // Convert the audio to an ArrayBuffer
+            const arrayBuffer = await audio.arrayBuffer();
+
+            // Write the ArrayBuffer to a file using Obsidian's API
+            await this.app.vault.adapter.writeBinary(filePath, arrayBuffer);
 
             new Notice(`Audio file created: ${fileName}`);
 
@@ -99,7 +80,7 @@ export default class ElevenLabsTTSPlugin extends Plugin {
             // Play the audio
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
             const source = audioContext.createBufferSource();
-            const audioBuffer = await audioContext.decodeAudioData(audioData);
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
             source.start();
@@ -144,23 +125,16 @@ class ElevenLabsTTSSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.apiKey = value;
                     await this.plugin.saveSettings();
+                    this.plugin.client = new ElevenLabsClient({ apiKey: value });
                 }));
 
         new Setting(containerEl)
             .setName('Voice')
             .setDesc('Select the voice to use')
             .addDropdown(async (dropdown) => {
-                const requestOptions = {
-                    method: "GET",
-                    headers: {
-                        "xi-api-key": this.plugin.settings.apiKey,
-                    },
-                };
-
-                const voices = await fetch(`${BASE_URL}/voices`, requestOptions);
-                const voicesData = await voices.json();
-
-                voicesData.voices.forEach((voice: any) => {
+                // const voices = await this.plugin.client.voices.getAll();
+                const voices = await this.plugin.client.getVoices();
+                voices.forEach((voice: any) => {
                     dropdown.addOption(voice.voice_id, voice.name);
                 });
                 dropdown.setValue(this.plugin.settings.selectedVoice);
