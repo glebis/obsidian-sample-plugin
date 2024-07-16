@@ -96,13 +96,13 @@ export default class ElevenLabsTTSPlugin extends Plugin {
                 await this.attachToDaily(filePath);
             }
 
-            // Play the audio
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const source = audioContext.createBufferSource();
-            const audioBuffer = await audioContext.decodeAudioData(audioData);
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            source.start();
+            // Play the audio using the <audio> element
+            const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            const audioElement = document.createElement('audio');
+            audioElement.src = audioUrl;
+            audioElement.play();
         } catch (error) {
             console.error('Error generating audio:', error);
             new Notice('Error generating audio file');
@@ -144,7 +144,9 @@ class ElevenLabsTTSSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.apiKey = value;
                     await this.plugin.saveSettings();
-                }));
+                }).inputEl.type = "password"
+      // Set input type to password
+                );
 
         new Setting(containerEl)
             .setName('Voice')
